@@ -1,0 +1,311 @@
+
+<!-- Custom Form Section -->
+<div class="custom-form-container">
+    <iframe id="customIframe" src="" style="width: 100%; height: 800px; display:none"></iframe>
+</div>
+
+<!-- Custom CartModal -->
+<div id="cartModal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Products Added to Cart</h2>
+        <div id="productList"></div>
+        <div id="clickableDiv">
+              <a id="cart-redirect-link" href="/cart"></a>
+              View cart
+          </div>
+    </div>
+</div>
+
+<!-- Modal Styles -->
+<style>
+    #cartModal {
+      disply: none;
+      position: fixed;
+      z-index: 1000;
+      top: 60px;
+      right: 20px;
+      width: 350px;
+      background-color: #fefefe;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      border: 1px solid #ccc;
+      padding: 10px 20px;
+    }
+
+    #cartModal .modal-content {
+      background-color: #fefefe;
+    }
+
+    #productList {
+        max-height: 70vh; /* Adjust the height as needed */
+        overflow-y: auto;
+        padding: 5px; /* Optional: Add some padding for better appearance */
+        box-sizing: border-box;
+        border-top: 1px solid #ccc;
+    }
+
+    /* Custom scrollbar styles */
+    #productList::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    #productList::-webkit-scrollbar-thumb {
+        background-color: #000;
+        border-radius: 5px;
+        border: 1px solid #eee;
+    }
+
+    #productList::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    #productList::-webkit-scrollbar-thumb:hover {
+        background-color: #555;
+    }
+
+    #cartModal .close {
+        color: #aaa;
+        float: right;
+        font-size: 15px;
+        font-weight: bold;
+    }
+
+    #cartModal .close:hover,
+    #cartModal .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    #cartModal .product-main .product-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    #cartModal .product-main .product-detail {
+        width: 100%;
+        display: grid;
+        margin-left: 20px;
+    }
+
+    #cartModal .product-main .title {
+        font-size: 20px;
+        margin: 10px 0;
+    }
+
+    #cartModal .product-main {
+        margin: 0 0 15px 0;
+    }
+
+    /* Remove border from the first child div with class product-main */
+    #productList > div:first-child .product-main {
+        border-top: none;
+    }
+
+    /* Apply border to all other .product-main divs */
+    #productList > div:not(:first-child) .product-main {
+        border-top: 1px solid #ccc;
+    }
+
+
+    #cart-redirect-link {
+        display: block;
+        height: 100%;
+        width: 100%;
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    #cartModal .modal-content #clickableDiv {
+        position: relative;
+        text-align: -webkit-center;
+        border-top: 1px solid #ccc;
+        padding-top: 5px;
+        font-size: 15px;
+      font-weight: 600;
+    }
+
+    #cartModal .modal-content div a {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        display: block;
+    }
+
+
+</style>
+
+
+<script>
+      document.addEventListener('DOMContentLoaded', function() {
+      var url=window.location.href;
+
+      var urlObj = new URL(url);
+
+        // Create a URLSearchParams object
+        var params = new URLSearchParams(urlObj.search);
+        
+        // Extract the values
+        var responseId = params.get('response_id');
+
+    if(responseId){
+         document.getElementById('customIframe').src = `https://alianquiz-dev.aliansoftware.net/preview/#/recommendation-product-page/${responseId}/?url=${url}`;
+        document.getElementById('customIframe').style.display = 'block';
+    }else{     
+      var test_data=[]
+
+      var verificationText = "{{ section.settings.quiz_id }}";
+      fetch(`https://alianquiz-dev.aliansoftware.net/get-quiz-list?shop=${window.location.href.split('/')[2]}`)
+        .then(response => response.json())
+        .then(data => {
+          // Assuming your API response returns the test data in an array named test_data
+          test_data = data.quiz_list;
+            verificationText = "{{ section.settings.quiz_id }}";
+     if (test_data.includes(verificationText))  {
+        document.getElementById('customIframe').style.display = 'block';
+        document.getElementById('customIframe').src = `https://alianquiz-dev.aliansoftware.net/preview/#/live-preview/${verificationText}?url=${url}`;
+             
+      } else {
+        document.getElementById('customIframe').style.display = 'none';
+      }
+        })
+        .catch(error => console.error('Error fetching data:', error));
+
+      // Check if verificationText matches a specific value to decide whether to display the form
+      if (test_data.includes(verificationText))  {
+        document.getElementById('customIframe').style.display = 'block';
+      } else {
+        document.getElementById('customIframe').style.display = 'none';
+      }
+   }
+    });
+
+    // Function for Add data in cart
+    async function addToCart(products) {
+        let count = 0;
+        let errors = []; // Array to collect errors
+        let add_to_cart_data = []; // Array to collect add_to_cart_data
+
+        for (let product of products) {
+            try {
+              const text = product.variant_id;
+              const parts = text.split('/');
+              const lastPart = parts[parts.length - 1];
+                let response = await fetch('/cart/add.js', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: lastPart,
+                        quantity: product.quantity,
+                        properties: {
+                            Quiz: true,
+                            doc_id: product.doc_id,
+                            quiz_id: product.quiz_id
+                        } 
+                    })
+                });
+                if (response.ok) {
+                    let data = await response.json();
+                    console.log(data, "Product added to cart");
+                    add_to_cart_data.push({"quantity": data.quantity, "product_title": data.product_title, "image": data.image, "price": data.presentment_price, "variant_title": data.variant_title, "variant_id": data.variant_id});
+                    count++;
+                } else {
+                    throw new Error(`Failed to add product with ID ${product.variant_id} to cart.`);
+                }
+            } catch (error) {
+                errors.push(error);
+            }
+        }
+
+        if (errors.length > 0) {
+            console.error("There were errors adding products to the cart:", errors);
+        }
+
+        if (count === products.length) {
+            console.log("All products added, redirecting to cart...");
+            showModal(add_to_cart_data);
+        } else {
+            console.log(`Added ${count} out of ${products.length} products to the cart.`);
+        }
+    }
+
+    // Open custom cart model
+    function showModal(products) {
+        const modal = document.getElementById("cartModal");
+        const productList = document.getElementById("productList");
+
+        products.forEach(product => {
+            const variant_div = document.getElementById(`${product.variant_id}`);
+            if (variant_div){
+              variant_div.remove();
+            }
+            const productItem = document.createElement("div");
+            productItem.innerHTML = `
+                  <div class="product-main" id="${product.variant_id}">
+                    <h2 class="title">${product.product_title}</h2>
+                    <div class="product-top">
+                      <img src="${product.image}" alt="" width="100px" height="100px"/>
+                       <div class="product-detail">
+                        <span class="product-qty"><b>Variant:</b> ${product.variant_title}</span>
+                        <span class="product-qty"><b>Qty:</b> ${product.quantity}</span>
+                        <span class="product-price"><b>Price:</b> ${product.price}</span>
+                      </div>
+                    </div>                   
+                  </div>
+            `;
+            productList.appendChild(productItem);
+        });
+
+        modal.style.display = "block";
+
+        const closeButton = document.getElementsByClassName("close")[0];
+        closeButton.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    }
+
+
+    // Listen for messages from the iframe
+    window.addEventListener('message', function(event) {
+      // Check the origin of the message for security
+      console.log("event.origin", event.origin);
+      if (event.origin !== 'https://alianquiz-dev.aliansoftware.net') {
+        return;
+      }
+      addToCart(event.data)
+    });
+</script>
+
+
+{% schema %}
+{
+  "name": "Quiz-preview",
+  "class": "Quiz-preview",
+  "settings": [
+    {
+      "type": "text",
+      "id": "quiz_id",
+      "label": "Quiz ID",
+      "default": "Enter Quiz ID"
+    }
+  ],
+  "presets": [
+    {
+    "name": "Quiz-preview"
+    }
+  ]
+}
+{% endschema %}
